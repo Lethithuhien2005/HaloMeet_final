@@ -1,0 +1,46 @@
+/* Xóa toàn bộ padding + background mặc định của DatePicker */
+.date-picker .combo-box-base,
+.date-picker {
+    -fx-background-color: transparent;
+    -fx-background-insets: 0;
+    -fx-padding: 0;
+}
+
+/* Bắt TextField chiếm toàn bộ LEFT SIDE */
+.date-picker .text-field {
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
+    -fx-padding: 10 0 10 10;   /* ← sát trái */
+    -fx-alignment: CENTER_LEFT;
+}
+
+/* HACK: Ép text-field kéo full width */
+.date-picker .text-field,
+.date-picker .arrow-button {
+    -fx-hgrow: ALWAYS;
+}
+
+/* ============================
+   ICON BUTTON (RIGHT)
+============================ */
+.date-picker .arrow-button {
+    -fx-background-color: transparent;
+    -fx-padding: 0 14 0 14;
+    -fx-cursor: hand;  /* Hover → hand cursor */
+}
+
+/* Icon mặc định */
+.date-picker .arrow-button .arrow {
+    -fx-background-color: #000000; /* đen */
+    -fx-min-width: 16px;
+    -fx-min-height: 16px;
+    -fx-max-width: 16px;
+    -fx-max-height: 16px;
+}
+
+/* ============================
+   HOVER EFFECT
+============================ */
+.date-picker .arrow-button:hover .arrow {
+    -fx-background-color: #444444; /* màu sáng hơn một chút */
+}

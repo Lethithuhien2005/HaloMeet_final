@@ -1,0 +1,49 @@
+/* ================= ScrollPane base ================= */
+.scroll-pane {
+    -fx-background-color: transparent;
+}
+
+.scroll-pane .viewport {
+    -fx-background-color: transparent;
+}
+
+/* ================= Vertical scrollbar ================= */
+.scroll-pane .scroll-bar:vertical {
+    -fx-background-color: transparent;
+    -fx-pref-width: 8px;
+}
+
+.scroll-pane .scroll-bar:vertical .thumb {
+    -fx-background-color: rgba(138,43,226,0.7);
+    -fx-background-insets: 2;
+    -fx-background-radius: 4;
+}
+
+.scroll-pane .scroll-bar:vertical .track {
+    -fx-background-color: transparent;
+}
+
+/* ================= Horizontal scrollbar ================= */
+.scroll-pane .scroll-bar:horizontal {
+    -fx-background-color: transparent;
+    -fx-pref-height: 6px;
+}
+
+.scroll-pane .scroll-bar:horizontal .thumb {
+    -fx-background-color: rgba(138,43,226,0.7);
+    -fx-background-radius: 3;
+}
+
+.scroll-pane .scroll-bar:horizontal .track {
+    -fx-background-color: transparent;
+}
+
+/* ================= Custom class ================= */
+.scroll-rounded .viewport {
+    -fx-background-color: transparent;
+}
+
+.chat-root {
+    -fx-background-color: white;
+}
+

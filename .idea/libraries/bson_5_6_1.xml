@@ -1,0 +1,14 @@
+<component name="libraryTable">
+  <library name="bson-5.6.1">
+    <CLASSES>
+      <root url="jar://$PROJECT_DIR$/../../NETWORK-PROGRAMMING/mongodb_jar/bson-5.6.1.jar!/" />
+      <root url="jar://$PROJECT_DIR$/../../NETWORK-PROGRAMMING/mongodb_jar/mongodb-driver-core-5.6.1.jar!/" />
+      <root url="jar://$PROJECT_DIR$/../../NETWORK-PROGRAMMING/mongodb_jar/mongodb-driver-sync-5.6.1.jar!/" />
+      <root url="jar://$PROJECT_DIR$/../../../Downloads/MongoDB libraries/bson-5.6.1.jar!/" />
+      <root url="jar://$PROJECT_DIR$/../../../Downloads/MongoDB libraries/mongodb-driver-core-5.6.1.jar!/" />
+      <root url="jar://$PROJECT_DIR$/../../../Downloads/MongoDB libraries/mongodb-driver-sync-5.6.1.jar!/" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES />
+  </library>
+</component>

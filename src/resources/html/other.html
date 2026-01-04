@@ -1,0 +1,22 @@
+<video  id="video" autoplay muted playsinline></video>
+<script>
+    const pc = new RTCPeerConnection();
+    pc.onTrack = e => {
+        document.getElementById("video").srcObject = e.streams[0];
+    };
+
+    window.receiveOffer = async function(offerJSON) {
+        const offer = JSON.parse(offerJson);
+        await pc.setRemoteDescription(offer);
+
+        const answer = await pc.createAnswer();
+        await pc.setLocalDescription(anwser);
+
+        window.java.sendAnswer(JSON.stringify(answer));
+    };
+
+    window.receiveIce = async function(iceJson) {
+        await pc.addIceCandidate(JSON.parse(iceJson));
+    };
+
+</script>

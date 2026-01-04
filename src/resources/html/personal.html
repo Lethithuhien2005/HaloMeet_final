@@ -1,0 +1,31 @@
+<video id = "video" autoplay muted playsinline></video>
+
+<script>
+    let stream;
+    const pc = new RTCPeerConnection();
+
+    pc.onicecandidate = e => {
+        if (e.candidate) {
+            window.java.sendIce(JSON.stringify(e.candidate));
+        }
+    };
+
+    navigator.mediaDevices.getUserMedia({video: true, audio:true}).then(s => {
+        stream = s;
+        document.getElementById("video").srcObject = stream;
+        stream.getTracks().forEach(t => pc.addTrack(t, stream));
+    })
+    .then(async () => {
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
+        window.java.sendOffer(JSON.stringify(offer));
+    });
+
+    function toggleCamera(on) {
+        stream.getVideoTracks()[0].enabled = on;
+    }
+
+    function toggleMic(on) {
+        stream.getAudioTracks()[0].enabled = on;
+    }
+</script>
