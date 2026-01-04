@@ -11,5 +11,6 @@
     <orderEntry type="library" name="JavaFX" level="project" />
     <orderEntry type="library" name="lib" level="project" />
     <orderEntry type="library" name="bson-5.6.1" level="project" />
+    <orderEntry type="library" name="jakarta.servlet.api" level="project" />
   </component>
 </module>

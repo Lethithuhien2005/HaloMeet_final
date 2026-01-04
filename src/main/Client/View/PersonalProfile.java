@@ -1,5 +1,12 @@
 package main.Client.View;
 
+import jakarta.servlet.ServletException;
+import jakarta.servlet.annotation.MultipartConfig;
+import jakarta.servlet.annotation.WebServlet;
+import jakarta.servlet.http.HttpServlet;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.Part;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.geometry.Rectangle2D;
@@ -13,13 +20,47 @@ import javafx.scene.paint.Color;
 import javafx.scene.shape.Circle;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
+import javafx.stage.FileChooser;
 import javafx.stage.Stage;
+import main.Server.Controller.AvatarService;
 import main.Server.Controller.UserController;
+import main.Server.DAO.UserDAO;
 import main.Server.Model.User;
 import main.util.PasswordUtils;
 import main.util.Session;
 
+import java.io.*;
+import java.net.Socket;
 import java.util.Objects;
+
+
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
+
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.io.PrintWriter;
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+
+import javafx.scene.control.Alert;
+import javafx.scene.control.Button;
+import javafx.scene.control.DatePicker;
+import javafx.scene.control.PasswordField;
+import javafx.scene.control.RadioButton;
+import javafx.scene.control.ScrollPane;
+import javafx.scene.control.TextField;
+import javafx.scene.control.ToggleGroup;
+
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.Priority;
+import javafx.scene.layout.StackPane;
+import javafx.scene.layout.VBox;
+
 
 public class PersonalProfile extends StackPane{
     private StackPane contentPane;
@@ -33,7 +74,7 @@ public class PersonalProfile extends StackPane{
     UserController userController = new UserController();
     // Lấy User từ DB
     User user = userController.getUserProfile(email);  // giả sử gọi DAO bên trong Controller
-
+    private String userIdHex;
 
 
 
@@ -57,6 +98,13 @@ public class PersonalProfile extends StackPane{
     private Button activeMenuButton = null;
 
     private void initializeUI() {
+
+        User user = userController.getUserProfile(email);
+        if(user != null) {
+            userIdHex = user.getUserIdHex(); // <-- method trong class User
+        }
+
+
         // ====== ROOT ======
         HBox root = new HBox();
         root.setPadding(new Insets(20));
@@ -96,7 +144,122 @@ public class PersonalProfile extends StackPane{
         avatar.setClip(clip);
 
 
-        // LEFT VBOX (Avatar + Fullname + Username + Menu Items)
+//        avatar.setOnMouseClicked(e -> {
+//            FileChooser fc = new FileChooser();
+//            File file = fc.showOpenDialog(null);
+//            System.out.println("Sending file for userIdHex: " + userIdHex + ", path: " + file.getAbsolutePath());
+//
+//            if(file != null && userIdHex != null){
+//                try(Socket socket = new Socket("localhost", 12345);
+//                    OutputStream out = socket.getOutputStream();
+//                    InputStream in = socket.getInputStream();
+//                    PrintWriter writer = new PrintWriter(out, true);
+//                    BufferedReader reader = new BufferedReader(new InputStreamReader(in))) {
+//
+//                    // gửi request UPLOAD_AVATAR + userId
+//                    writer.println("UPLOAD_AVATAR");
+//                    writer.println(userIdHex);
+//
+//                    // gửi độ dài file trước
+//                    writer.println(file.length());
+//                    // gửi extension để server giữ đúng định dạng
+////                    writer.println(file.getName().substring(file.getName().lastIndexOf(".")));
+//                    writer.println(file.getName());
+//
+//                    writer.flush();
+//
+//                    // gửi dữ liệu file
+////                    Files.copy(file.toPath(), out);
+////                    out.flush();
+//                    // gửi file: đọc từng chunk 4KB
+//                    try (FileInputStream fis = new FileInputStream(file)) {
+//                        byte[] buffer = new byte[4096];
+//                        int read;
+//                        while((read = fis.read(buffer)) != -1) {
+//                            out.write(buffer, 0, read);
+//                        }
+//                    }
+//                    out.flush();
+//
+//                    // nhận phản hồi
+//                    String resp = reader.readLine();
+//                    if("UPLOAD_SUCCESS".equals(resp)) {
+//                        // cập nhật UI sau khi upload
+////                        avatar.setImage(new Image(file.toURI().toString()));
+//
+//                        Image newImg = new Image(file.toURI().toString());
+//                        avatar.setImage(newImg);
+//
+//// re-crop
+//                        double w = newImg.getWidth();
+//                        double h = newImg.getHeight();
+//                        double side = Math.min(w, h);
+//
+//                        avatar.setViewport(new Rectangle2D(
+//                                (w - side) / 2,
+//                                (h - side) / 2,
+//                                side,
+//                                side
+//                        ));
+//
+//
+//                        Alert alert = new Alert(Alert.AlertType.INFORMATION);
+//                        alert.setTitle("Upload Avatar");
+//                        alert.setHeaderText(null);
+//                        alert.setContentText("Upload file thành công!");
+//                        alert.showAndWait();
+//                    }
+//                    else {
+//                        Alert alert = new Alert(Alert.AlertType.ERROR);
+//                        alert.setTitle("Upload Avatar");
+//                        alert.setHeaderText(null);
+//                        alert.setContentText("Upload thất bạicho@");
+//                        alert.showAndWait();
+//                    }
+//
+//                } catch(IOException ex){
+//                    ex.printStackTrace();
+//                    Alert alert = new Alert(Alert.AlertType.ERROR);
+//                    alert.setTitle("Upload Avatar");
+//                    alert.setHeaderText(null);
+//                    alert.setContentText("Có lỗi xảy ra khi upload file.");
+//                    alert.showAndWait();
+//                }
+//            }
+//        });
+
+
+        try(Socket socket = new Socket("localhost", 12345);
+            InputStream in = socket.getInputStream();
+            PrintWriter writer = new PrintWriter(socket.getOutputStream(), true);
+            BufferedReader reader = new BufferedReader(new InputStreamReader(in))) {
+
+            writer.println("GET_AVATAR");
+            writer.println(userIdHex);
+
+            // đọc độ dài file
+            String lenStr = reader.readLine();
+            if(lenStr == null) throw new IOException("Không nhận được chiều dài file từ server");
+            long length = Long.parseLong(lenStr);
+
+            // đọc file theo buffer nhỏ (4KB) thay vì đọc hết vào mảng
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            byte[] buf = new byte[4096];
+            long remaining = length;
+            int read;
+            while(remaining > 0 && (read = in.read(buf, 0, (int)Math.min(buf.length, remaining))) != -1){
+                baos.write(buf, 0, read);
+                remaining -= read;
+            }
+
+            ByteArrayInputStream bais = new ByteArrayInputStream(baos.toByteArray());
+            avatar.setImage(new Image(bais));
+
+        } catch(IOException ex){
+            ex.printStackTrace();
+        }
+
+
         VBox leftVBox = new VBox();
         leftVBox.setAlignment(Pos.TOP_CENTER);
         leftVBox.setSpacing(20);
@@ -136,13 +299,6 @@ public class PersonalProfile extends StackPane{
             fullnameLabel = new Label("Unknown");
             usernameLabel = new Label("@unknown");
         }
-
-        // Tạo label hoặc cập nhật label
-//        Label emailLabel = new Label();
-//        emailLabel.setFont(Font.font("Arial", 14));
-//        emailLabel.setTextFill(Color.GRAY);
-//        emailLabel.setText(email);  // <- đặt email vào label
-//        emailLabel.setPadding(new Insets(0, 0, 20, 0));
 
 
         // Menu buttons
@@ -274,14 +430,6 @@ public class PersonalProfile extends StackPane{
         );
         scrollPane.getStylesheets().add(getClass().getResource("/css/datepicker.css").toExternalForm());
 
-//        scene.setFill(Color.web("#F8F7FF"));
-
-//        stage.setScene(scene);
-//        stage.setTitle("Personal Profile");
-//        stage.setMaximized(true);
-
-
-//        stage.show();
 
         this.getChildren().add(scrollPane);
     }
@@ -347,104 +495,104 @@ public class PersonalProfile extends StackPane{
         box.getChildren().addAll(contentLabel, toggle);
         return box;
     }
-    private HBox createTag(String title, String subtitle, String imagePath) {
-        // ===== ICON =====
-        ImageView icon = new ImageView(new Image(imagePath));
-        icon.setFitWidth(48);
-        icon.setFitHeight(48);
-        icon.setPreserveRatio(true);
-
-        // ===== TITLE =====
-        Label titleLabel = new Label(title);
-        titleLabel.setStyle("-fx-font-weight: bold; -fx-text-fill: #000000; -fx-font-size: 17;");
-
-        // ===== SUBTITLE =====
-        Label subtitleLabel = new Label(subtitle);
-        subtitleLabel.setStyle("-fx-text-fill: #555; -fx-font-size: 11;");
-
-        // ===== TEXT BOX =====
-        VBox textBox = new VBox(3);
-        textBox.getChildren().addAll(titleLabel, subtitleLabel);
-        textBox.setAlignment(Pos.CENTER_LEFT);
-
-        // ===== CONTENT (ICON + TEXT) =====
-        HBox contentBox = new HBox(25);  // khoảng cách giữa icon và text
-        contentBox.getChildren().addAll(icon, textBox);
-        contentBox.setAlignment(Pos.CENTER_LEFT);
-
-        // ===== TAG CONTAINER =====
-        HBox box = new HBox(contentBox);
-        box.setAlignment(Pos.CENTER_LEFT);
-        box.setPadding(new Insets(8, 12, 8, 25));
-
-        box.setStyle("""
-            -fx-background-color: transparent;
-            -fx-border-color: #BBBBBB;
-            -fx-border-width: 0.8;
-            -fx-border-radius: 8;
-            -fx-background-radius: 8;
-        """);
-
-        box.setPrefHeight(90);
-        box.setMinHeight(90);
-        box.setMaxWidth(Double.MAX_VALUE);
-
-        return box;
-    }
-
-    private VBox createSection(String title, String contentText) {
-        VBox section = new VBox();
-        section.setSpacing(10);
-        section.setPadding(new Insets(15));
-        section.setStyle("""
-            -fx-background-color: white;
-            -fx-background-radius: 15;
-            -fx-border-radius: 15;
-            -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.1), 10, 0.5, 0, 2);
-        """);
-
-        Label titleLabel = new Label(title);
-        titleLabel.setFont(Font.font("Poppins", FontWeight.BOLD, 16));
-
-        Label contentLabel = new Label(contentText);
-        contentLabel.setWrapText(true);
-
-        section.getChildren().addAll(titleLabel, contentLabel);
-
-        return section;
-    }
-    private VBox createProfileInfoSection() {
-        VBox section = new VBox();
-        section.setSpacing(10);
-        section.setPadding(new Insets(15));
-        section.setStyle("""
-        -fx-background-color: white;
-        -fx-background-radius: 15;
-        -fx-border-radius: 15;
-        -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.1), 10, 0.5, 0, 2);
-    """);
-
-        Label titleLabel = new Label("Profile Information");
-        titleLabel.setFont(Font.font("Poppins", FontWeight.BOLD, 16));
-
-        // Info labels
-        Label bioLabel = new Label("Bio: " + bio);
-        Label skillLabel = new Label("Skill: " + skill);
-        Label genderLabel = new Label("Gender: " + gender);
-        Label lastNameLabel = new Label("Last Name: " + lastName);
-        Label firstNameLabel = new Label("First Name: " + firstName);
-        Label emailLabel = new Label("Email: " + email);
-        Label websiteLabel = new Label("Website: " + website);
-        Label locationLabel = new Label("Location: " + location);
-
-        // Nếu muốn mỗi field xuống dòng riêng
-        VBox infoBox = new VBox(5);
-        infoBox.getChildren().addAll(bioLabel, skillLabel, genderLabel, lastNameLabel,
-                firstNameLabel, emailLabel, websiteLabel, locationLabel);
-
-        section.getChildren().addAll(titleLabel, infoBox);
-        return section;
-    }
+//    private HBox createTag(String title, String subtitle, String imagePath) {
+//        // ===== ICON =====
+//        ImageView icon = new ImageView(new Image(imagePath));
+//        icon.setFitWidth(48);
+//        icon.setFitHeight(48);
+//        icon.setPreserveRatio(true);
+//
+//        // ===== TITLE =====
+//        Label titleLabel = new Label(title);
+//        titleLabel.setStyle("-fx-font-weight: bold; -fx-text-fill: #000000; -fx-font-size: 17;");
+//
+//        // ===== SUBTITLE =====
+//        Label subtitleLabel = new Label(subtitle);
+//        subtitleLabel.setStyle("-fx-text-fill: #555; -fx-font-size: 11;");
+//
+//        // ===== TEXT BOX =====
+//        VBox textBox = new VBox(3);
+//        textBox.getChildren().addAll(titleLabel, subtitleLabel);
+//        textBox.setAlignment(Pos.CENTER_LEFT);
+//
+//        // ===== CONTENT (ICON + TEXT) =====
+//        HBox contentBox = new HBox(25);  // khoảng cách giữa icon và text
+//        contentBox.getChildren().addAll(icon, textBox);
+//        contentBox.setAlignment(Pos.CENTER_LEFT);
+//
+//        // ===== TAG CONTAINER =====
+//        HBox box = new HBox(contentBox);
+//        box.setAlignment(Pos.CENTER_LEFT);
+//        box.setPadding(new Insets(8, 12, 8, 25));
+//
+//        box.setStyle("""
+//            -fx-background-color: transparent;
+//            -fx-border-color: #BBBBBB;
+//            -fx-border-width: 0.8;
+//            -fx-border-radius: 8;
+//            -fx-background-radius: 8;
+//        """);
+//
+//        box.setPrefHeight(90);
+//        box.setMinHeight(90);
+//        box.setMaxWidth(Double.MAX_VALUE);
+//
+//        return box;
+//    }
+//
+//    private VBox createSection(String title, String contentText) {
+//        VBox section = new VBox();
+//        section.setSpacing(10);
+//        section.setPadding(new Insets(15));
+//        section.setStyle("""
+//            -fx-background-color: white;
+//            -fx-background-radius: 15;
+//            -fx-border-radius: 15;
+//            -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.1), 10, 0.5, 0, 2);
+//        """);
+//
+//        Label titleLabel = new Label(title);
+//        titleLabel.setFont(Font.font("Poppins", FontWeight.BOLD, 16));
+//
+//        Label contentLabel = new Label(contentText);
+//        contentLabel.setWrapText(true);
+//
+//        section.getChildren().addAll(titleLabel, contentLabel);
+//
+//        return section;
+//    }
+//    private VBox createProfileInfoSection() {
+//        VBox section = new VBox();
+//        section.setSpacing(10);
+//        section.setPadding(new Insets(15));
+//        section.setStyle("""
+//        -fx-background-color: white;
+//        -fx-background-radius: 15;
+//        -fx-border-radius: 15;
+//        -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.1), 10, 0.5, 0, 2);
+//    """);
+//
+//        Label titleLabel = new Label("Profile Information");
+//        titleLabel.setFont(Font.font("Poppins", FontWeight.BOLD, 16));
+//
+//        // Info labels
+//        Label bioLabel = new Label("Bio: " + bio);
+//        Label skillLabel = new Label("Skill: " + skill);
+//        Label genderLabel = new Label("Gender: " + gender);
+//        Label lastNameLabel = new Label("Last Name: " + lastName);
+//        Label firstNameLabel = new Label("First Name: " + firstName);
+//        Label emailLabel = new Label("Email: " + email);
+//        Label websiteLabel = new Label("Website: " + website);
+//        Label locationLabel = new Label("Location: " + location);
+//
+//        // Nếu muốn mỗi field xuống dòng riêng
+//        VBox infoBox = new VBox(5);
+//        infoBox.getChildren().addAll(bioLabel, skillLabel, genderLabel, lastNameLabel,
+//                firstNameLabel, emailLabel, websiteLabel, locationLabel);
+//
+//        section.getChildren().addAll(titleLabel, infoBox);
+//        return section;
+//    }
 
 
     private Button createMenuButton(String text) {
@@ -953,12 +1101,6 @@ public class PersonalProfile extends StackPane{
             }
         });
 
-//        VBox form = new VBox(24);
-//        form.getChildren().addAll(
-//                labeledField("Current Password", createRoundedPasswordField()),
-//                labeledField("New Password", createRoundedPasswordField()),
-//                labeledField("Confirm Password", createRoundedPasswordField())
-//        );
         VBox form = new VBox(10);
         form.getChildren().addAll(
                 labeledField("Current Password", currentPasswordField),
@@ -981,46 +1123,7 @@ public class PersonalProfile extends StackPane{
         btnBox.setPadding(new Insets(30, 0, 0, 0)); // khoảng cách top
 
         // Set On Action for SAVE BTN
-//        saveBtn.setOnAction(e -> {
-//            String currentPass = currentPasswordField.getText();
-//            String newPass = newPasswordField.getText();
-//            String confirmPass = confirmPasswordField.getText();
-//
-//            String email = Session.getInstance().getEmail();
-//            UserController userController = new UserController();
-//            User user = userController.getUserProfile(email);
-//
-//            if (user == null) return;
-//
-//            // Check current password
-//            String salt = "hienanh";
-//            String hashedCurrent = PasswordUtils.hashPassword(currentPass + salt);
-//            if (!hashedCurrent.equals(user.getPassword())) {
-//                currentPasswordMsg.setText("Password is incorrect");
-//                currentPasswordMsg.setTextFill(Color.RED);
-//                return;
-//            }
-//
-//            // Check confirm password
-//            if (!newPass.equals(confirmPass)) {
-//                confirmPasswordMsg.setText("Passwords do not match");
-//                confirmPasswordMsg.setTextFill(Color.RED);
-//                return;
-//            }
-//
-//
-//            // Update password
-//
-//            String salt = "hienanh";
-//            String hashedPassword = PasswordUtils.hashPassword(newPass + salt);
-//            user.setPassword(hashedPassword);
-//
-//            UserController userController = new UserController();
-//            userController.updateUserPassword(user);
-//
-//            currentPasswordMsg.setText("Password updated successfully");
-//            currentPasswordMsg.setTextFill(Color.GREEN);
-//        });
+
         saveBtn.setOnAction(e -> {
             String currentPass = currentPasswordField.getText();
             String newPass = newPasswordField.getText();
@@ -1088,9 +1191,85 @@ public class PersonalProfile extends StackPane{
         rightVBox.getChildren().addAll(title, logoutBtn);
     }
 
+
 //    public static void main(String[] args) {
 //        javafx.application.Application.launch(TestProfilePage.class, args);
 //    }
+
+//    private String uploadAvatarToServer(File file, String email) throws Exception {
+//        String boundary = Long.toHexString(System.currentTimeMillis());
+//        URL url = new URL("http://localhost:8080/api/uploadAvatar"); // endpoint server
+//        HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+//        connection.setDoOutput(true);
+//        connection.setRequestMethod("POST");
+//        connection.setRequestProperty("Content-Type", "multipart/form-data; boundary=" + boundary);
+//
+//        try (OutputStream output = connection.getOutputStream();
+//             PrintWriter writer = new PrintWriter(new OutputStreamWriter(output, "UTF-8"), true)) {
+//
+//            // Thêm field email
+//            writer.append("--").append(boundary).append("\r\n");
+//            writer.append("Content-Disposition: form-data; name=\"email\"\r\n\r\n");
+//            writer.append(email).append("\r\n");
+//
+//            // Thêm file
+//            writer.append("--").append(boundary).append("\r\n");
+//            writer.append("Content-Disposition: form-data; name=\"avatar\"; filename=\"")
+//                    .append(file.getName()).append("\"\r\n");
+//            writer.append("Content-Type: ").append(Files.probeContentType(file.toPath())).append("\r\n\r\n");
+//            writer.flush();
+//
+//            Files.copy(file.toPath(), output);
+//            output.flush();
+//            writer.append("\r\n");
+//            writer.append("--").append(boundary).append("--\r\n");
+//            writer.flush();
+//        }
+//
+//        // Nhận response từ server: trả về URL
+//        int responseCode = connection.getResponseCode();
+//        if (responseCode == HttpURLConnection.HTTP_OK) {
+//            try (BufferedReader in = new BufferedReader(new InputStreamReader(connection.getInputStream()))) {
+//                String line;
+//                StringBuilder response = new StringBuilder();
+//                while ((line = in.readLine()) != null) {
+//                    response.append(line);
+//                }
+//                // Giả sử server trả về URL của avatar
+//                return response.toString();
+//            }
+//        } else {
+//            throw new IOException("Server returned code: " + responseCode);
+//        }
+//    }
+
+//    @WebServlet("/api/uploadAvatar")
+//    @MultipartConfig(fileSizeThreshold = 1024 * 1024, maxFileSize = 5 * 1024 * 1024)
+//    public class AvatarUploadServlet extends HttpServlet {
+//        protected void doPost(HttpServletRequest request, HttpServletResponse response)
+//                throws ServletException, IOException {
+//            String email = request.getParameter("email");
+//            Part filePart = request.getPart("avatar"); // tên trường "avatar"
+//            String fileName = System.currentTimeMillis() + "_" + filePart.getSubmittedFileName();
+//            String uploadPath = getServletContext().getRealPath("/avatars");
+//            File uploads = new File(uploadPath);
+//            if (!uploads.exists()) uploads.mkdirs();
+//
+//            File file = new File(uploads, fileName);
+//            try (InputStream input = filePart.getInputStream()) {
+//                Files.copy(input, file.toPath(), StandardCopyOption.REPLACE_EXISTING);
+//            }
+//
+//            // Trả về URL để client load
+//            String avatarUrl = request.getContextPath() + "/avatars/" + fileName;
+//            response.setContentType("text/plain");
+//            response.getWriter().write(avatarUrl);
+//
+//            // Bạn có thể luôn update DB ở đây nếu muốn
+//        }
+//    }
+
+
 
 }
 

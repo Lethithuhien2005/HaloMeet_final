@@ -77,8 +77,8 @@ public class UserDAO {
                     .append("gender", user.getGender())
                     .append("phone", user.getPhone())
                     .append("address", user.getAddress())
-                    .append("dob", user.getDob() != null ? java.util.Date.from(user.getDob().atStartOfDay(ZoneId.systemDefault()).toInstant()) : null);
-
+                    .append("dob", user.getDob() != null ? java.util.Date.from(user.getDob().atStartOfDay(ZoneId.systemDefault()).toInstant()) : null)
+                    .append("avatar", user.getAvatar()); // thêm dòng này
             users.updateOne(eq("email", user.getEmail()), new Document("$set", update));
             return true;
         } catch (Exception e) {
@@ -101,5 +101,16 @@ public class UserDAO {
     public Document getUserById(ObjectId userId) {
         return users.find(new Document("_id", userId)).first();
     }
+
+
+//    public boolean updateAvatar(ObjectId userId, String avatarFileName) {
+//        try {
+//            users.updateOne(eq("_id", userId), new Document("$set", new Document("avatar", avatarFileName)));
+//            return true;
+//        } catch (Exception e) {
+//            e.printStackTrace();
+//            return false;
+//        }
+//    }
 
 }

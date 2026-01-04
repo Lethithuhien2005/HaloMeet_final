@@ -28,7 +28,9 @@ import shared.DTO.ChatMeeting;
 import shared.DTO.Meeting_participantDTO;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class MeetingUI extends StackPane {
     private HBox rootLayout;            // HBox chia 7:3
@@ -47,6 +49,7 @@ public class MeetingUI extends StackPane {
 
     private MeetingChatController chatController;
     private ObservableList<Meeting_participantDTO> participantsList;
+    private final Map<String, String> userNameCache = new HashMap<>();
 
 
     private StackPane contentPane;
@@ -231,6 +234,14 @@ public class MeetingUI extends StackPane {
             listParticipants.setStyle("-fx-background-color: #fff");
 
             participants.addListener((ListChangeListener<Meeting_participantDTO>) change -> {
+
+                // ====== BUILD / UPDATE USER NAME CACHE ======
+                userNameCache.clear();
+                for (Meeting_participantDTO p : participants) {
+                    userNameCache.put(p.getUserId(), p.getFullName());
+                }
+                // ===========================================
+
                 listParticipants.getChildren().clear();
                 for (Meeting_participantDTO p : participants) {
                     HBox row = new HBox(10);
@@ -798,12 +809,17 @@ public class MeetingUI extends StackPane {
         String displayName;
         boolean isMine = sender.equals(Session.getInstance().getUserIdHex());
 
-        if (sender.equals(Session.getInstance().getUserIdHex())) {
+//        if (sender.equals(Session.getInstance().getUserIdHex())) {
+//            displayName = "You";
+//        } else {
+//            // tìm participant theo userId
+//            Meeting_participantDTO p = findParticipantByUserId(sender);
+//            displayName = (p != null) ? p.getFullName() : sender;
+//        }
+        if (isMine) {
             displayName = "You";
         } else {
-            // tìm participant theo userId
-            Meeting_participantDTO p = findParticipantByUserId(sender);
-            displayName = (p != null) ? p.getFullName() : sender;
+            displayName = userNameCache.getOrDefault(sender, "Unknown");
         }
 
 
