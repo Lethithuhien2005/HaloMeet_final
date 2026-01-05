@@ -34,6 +34,7 @@ public class LoginController {
                 SocketClient socketClient = SocketClient.getInstance();
                 if (!socketClient.isConnected()) {
                     Platform.runLater(() -> logInView.showError("TCP chưa kết nối. Hãy đợi kết nối xong!"));
+                    return;
                 }
 
                 // Gui login request

@@ -10,12 +10,14 @@ import main.Server.Model.User;
 import main.util.MongoDBConnection;
 import main.util.PasswordUtils;
 
+import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import org.bson.Document;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.FindIterable;
+import shared.DTO.UserDTO;
 
 import static com.mongodb.client.model.Filters.ne;
 
@@ -72,14 +74,38 @@ public class UserController {
         return userDAO.updateUser(user);
     }
 
-    public void updateUserPassword(User user) {
-        userDAO.updatePassword(user.getEmail(), user.getPassword());
+    public Document updateUserPassword(Document request) {
+        Document userDoc = (Document) request.get("user");
+        if (userDoc == null) {
+            return new Document("type", "UPDATE_PASSWORD_FAIL").append("message", "No user data provided");
+        }
+        // Chuyển Document sang User object
+        User user = new User();
+        user.setUsername(userDoc.getString("username"));
+        user.setFullName(userDoc.getString("fullName"));
+        user.setEmail(userDoc.getString("email"));
+        user.setPassword(userDoc.getString("password"));
+        user.setRole(userDoc.getString("role"));
+        user.setGender(userDoc.getString("gender"));
+        user.setPhone(userDoc.getString("phone"));
+        user.setAddress(userDoc.getString("address"));
+        String dobStr = userDoc.getString("dob");
+        user.setDob(dobStr != null ? LocalDate.parse(dobStr) : null);
+
+        boolean success = userDAO.updatePassword(user.getEmail(), user.getPassword());
+        if (success) {
+            return new Document("type", "UPDATE_PASSWORD_OK");
+        } else {
+            return new Document("type", "UPDATE_PASSWORD_FAIL")
+                    .append("message", "Password update failed");
+        }
     }
 
     // Lấy tất cả user trừ email hiện tại
-    public List<User> getAllUsersExcept(String email) {
+    public Document getAllUsersExcept(Document request) {
+        String email = request.getString("email");
 
-        List<User> users = new ArrayList<>();
+        List<UserDTO> users = new ArrayList<>();
 
         MongoDatabase db = MongoDBConnection.getDatabase();
         MongoCollection<Document> collection = db.getCollection("users"); // đúng tên collection
@@ -89,7 +115,7 @@ public class UserController {
 
         for (Document doc : docs) {
 
-            User user = new User(
+            UserDTO user = new UserDTO(
                     doc.getString("username"),
                     doc.getString("fullName"), // đúng key
                     doc.getString("email"),
@@ -103,15 +129,86 @@ public class UserController {
                             : null
             );
 
-            user.setUserId(doc.getObjectId("_id"));     // ✅ thêm
+            user.setUserId(doc.getObjectId("_id"));     // thêm
             user.setCreatedAt(doc.getDate("created_at"));
             user.setUpdatedAt(doc.getDate("updated_at"));
 
             users.add(user);
         }
 
-        return users;
+        // Chuyển sang List<Document> để gửi cho client
+        List<Document> userDocs = users.stream().map(u -> {
+            Document d = new Document();
+            d.append("userId", u.getUserId().toHexString());
+            d.append("username", u.getUsername());
+            d.append("fullName", u.getFullName());
+            d.append("email", u.getEmail());
+            d.append("role", u.getRole());
+            d.append("gender", u.getGender());
+            d.append("phone", u.getPhone());
+            d.append("address", u.getAddress());
+            d.append("status", u.getStatus());
+            d.append("dob", u.getDob() != null ? u.getDob().toString() : null);
+            d.append("createdAt", u.getCreatedAt());
+            d.append("updatedAt", u.getUpdatedAt());
+            return d;
+        }).toList();
+
+        return new Document("type", "GET_OTHER_USERS_OK").append("users", userDocs);
     }
 
+    public Document handleGetUser(Document request) {
+        String email = request.getString("email");
+        User user = userDAO.getUserByEmail(email);
+        if (user == null) {
+            return new Document("type", "ERROR")
+                    .append("message", "User not found");
+        } else {
+            // Chuyen User sang Document
+            Document userDoc = new Document()
+                    .append("userId", user.getUserId().toHexString())
+                    .append("username", user.getUsername())
+                    .append("fullName", user.getFullName())
+                    .append("email", user.getEmail())
+                    .append("role", user.getRole())
+                    .append("gender", user.getGender())
+                    .append("phone", user.getPhone())
+                    .append("address", user.getAddress())
+                    .append("status", user.getStatus())
+                    .append("dob", user.getDob() != null ? user.getDob().toString() : null)
+                    .append("createdAt", user.getCreatedAt())
+                    .append("updatedAt", user.getUpdatedAt());
 
+            return new Document("type", "GET_USER_OK").append("user", userDoc);
+        }
+
+    }
+
+    public Document handleUpdateUser(Document request) {
+        Document userDoc = (Document) request.get("user");
+        if (userDoc == null) {
+            return new Document("type", "UPDATE_USER_FAIL").append("message", "No user data provided");
+        }
+        // Chuyển Document sang User object
+        User user = new User();
+        user.setUsername(userDoc.getString("username"));
+        user.setFullName(userDoc.getString("fullName"));
+        user.setEmail(userDoc.getString("email"));
+        user.setRole(userDoc.getString("role"));
+        user.setGender(userDoc.getString("gender"));
+        user.setPhone(userDoc.getString("phone"));
+        user.setAddress(userDoc.getString("address"));
+        String dobStr = userDoc.getString("dob");
+        user.setDob(dobStr != null ? LocalDate.parse(dobStr) : null);
+
+        boolean success = userDAO.updateUser(user);
+
+        if (success) {
+            return new Document("type", "UPDATE_USER_OK");
+        } else {
+            return new Document("type", "UPDATE_USER_FAIL")
+                    .append("message", "Database update failed");
+        }
+
+    }
 }

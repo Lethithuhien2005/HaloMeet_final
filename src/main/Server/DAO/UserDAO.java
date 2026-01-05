@@ -87,8 +87,14 @@ public class UserDAO {
         }
     }
 
-    public void updatePassword(String email, String newHashedPassword) {
-        users.updateOne(eq("email", email), new Document("$set", new Document("password", newHashedPassword)));
+    public boolean updatePassword(String email, String newHashedPassword) {
+        try {
+            users.updateOne(eq("email", email), new Document("$set", new Document("password", newHashedPassword)));
+            return true;
+        } catch (Exception ex) {
+            ex.printStackTrace();
+            return false;
+        }
     }
 
     public void updateUpdatedAt(String email) {
@@ -103,14 +109,14 @@ public class UserDAO {
     }
 
 
-//    public boolean updateAvatar(ObjectId userId, String avatarFileName) {
-//        try {
-//            users.updateOne(eq("_id", userId), new Document("$set", new Document("avatar", avatarFileName)));
-//            return true;
-//        } catch (Exception e) {
-//            e.printStackTrace();
-//            return false;
-//        }
-//    }
+    public boolean updateAvatar(ObjectId userId, String avatarFileName) {
+        try {
+            users.updateOne(eq("_id", userId), new Document("$set", new Document("avatar", avatarFileName)));
+            return true;
+        } catch (Exception e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
 
 }

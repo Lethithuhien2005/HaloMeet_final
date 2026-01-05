@@ -17,6 +17,8 @@ public class ChatClient {
         void onNewMessage(String conversationId, Document message);
         void onError(String message);
 
+        default void onGetUserOk(Document userDoc) {}
+        default void onGetOtherUsersOk(java.util.List<Document> users) {}
         default void onListGroupsOk(java.util.List<Document> groups) {}
         default void onHelloOk() {}
     }
@@ -87,22 +89,6 @@ public class ChatClient {
                             listener.onOpenPrivateOk(conversationId, withUserId, msgs));
                 }
                 if ("OPEN_GROUP_OK".equals(type)) {
-//                    String conversationId = res.getString("conversationId");
-//
-//                    @SuppressWarnings("unchecked")
-//                    java.util.List<Document> msgs = (java.util.List<Document>) res.get("messages");
-//
-//                    if (listener != null) Platform.runLater(() ->
-//                            listener.onOpenPrivateOk(conversationId, res.getString("groupName"), msgs)
-//                    );
-//                    String conversationId = res.getString("conversationId");
-//                    String groupName = res.getString("groupName");
-//
-//                    java.util.List<Document> msgs = res.getList("messages", Document.class);
-//                    if (msgs == null) msgs = java.util.List.of();
-//
-//                    if (listener != null) Platform.runLater(() ->
-//                            listener.onOpenPrivateOk(conversationId, groupName, msgs));
                     final String conversationId = res.getString("conversationId");
                     final String groupName = res.getString("groupName");
 
@@ -132,6 +118,13 @@ public class ChatClient {
                     @SuppressWarnings("unchecked")
                     java.util.List<Document> groups = (java.util.List<Document>) res.get("groups");
                     if (listener != null) Platform.runLater(() -> listener.onListGroupsOk(groups));
+                }
+                else if ("GET_USER_OK".equals(type)) {
+                Document userDoc = (Document) res.get("user");
+                if (listener != null) Platform.runLater(() -> listener.onGetUserOk(userDoc));
+                } else if ("GET_OTHER_USERS_OK".equals(type)) {
+                    java.util.List<Document> users = (java.util.List<Document>) res.get("users");
+                    if (listener != null) Platform.runLater(() -> listener.onGetOtherUsersOk(users));
                 }
             }
         } catch (Exception ex) {
@@ -186,6 +179,40 @@ public class ChatClient {
         socketClient.send(new Document("type", "CREATE_GROUP")
                 .append("groupName", groupName)
                 .append("memberIds", memberIds));
+    }
+    public void getUserProfile(String email) {
+        new Thread(() -> {
+            try {
+                if (!socketClient.isConnected() || !Session.getInstance().isLoggedIn()) {
+                    if (listener != null) Platform.runLater(() ->
+                            listener.onError("Client mất kết nối với Server hoặc chưa đăng nhập."));
+                    return;
+                }
+                // Gui request
+                Document getUserRequest = new Document("type", "GET_USER").append("email", email);
+                socketClient.send(getUserRequest);
+
+            } catch (Exception ex) {
+                ex.printStackTrace();
+            }
+        }).start();
+    }
+
+    public void getOtherUser(String email) {
+        new Thread(() -> {
+            try {
+                if (!socketClient.isConnected() || !Session.getInstance().isLoggedIn()) {
+                    if (listener != null) Platform.runLater(() ->
+                            listener.onError("Client mất kết nối với Server hoặc chưa đăng nhập."));
+                    return;
+                }
+                // Gui request
+                Document getOtherUserRequest = new Document("type", "GET_OTHER_USERS").append("email", email);
+                socketClient.send(getOtherUserRequest);
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }).start();
     }
 
 }

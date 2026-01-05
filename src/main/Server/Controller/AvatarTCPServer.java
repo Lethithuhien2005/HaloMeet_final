@@ -145,7 +145,7 @@ public class AvatarTCPServer {
                     }
                 }
 
-                // ✅ UPDATE MONGODB
+                // UPDATE MONGODB
                 UserDAO userDAO = new UserDAO();
                 boolean updated = userDAO.updateAvatar(
                         new ObjectId(userIdHex),

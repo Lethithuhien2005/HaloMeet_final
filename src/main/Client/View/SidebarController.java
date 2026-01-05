@@ -12,7 +12,9 @@
     import javafx.scene.text.FontWeight;
     import javafx.stage.Stage;
     import main.Client.Controller.MeetingController;
+    import main.Client.Controller.PersonalController;
     import main.Client.View.meeting.MeetingUI;
+    import main.util.Session;
     import shared.MeetingService;
 
     public class SidebarController {
@@ -25,6 +27,8 @@
         private Home homeView;
         private MeetingService meetingService;
         private MeetingController meetingController;
+        private PersonalProfile personalProfileView;
+        private PersonalController personalController;
 
         public SidebarController(MeetingService meetingService) {
             this.meetingService = meetingService;
@@ -80,9 +84,17 @@
             // MenuItem account setting
             VBox accountItem = createMenuItem("/images/profile.png", "Account",
                     () -> {
-    //            String email = loggedInUserEmail; // email bạn lấy từ login
-                        String email = "quynhanhnguyen@gmail.com";
-                        setContent(new PersonalProfile(contentPane, email));
+                        String email = Session.getInstance().getEmail();
+
+                        if (personalProfileView == null) {
+                            // Tạo view + controller duy nhất
+                            personalProfileView = new PersonalProfile(contentPane, email);
+                            personalController = new PersonalController(personalProfileView);
+                            personalController.getUserProfile(email); // gọi TCP
+                        }
+
+                        // setContent cho contentPane
+                        setContent(personalProfileView);
                     }
             );
 
@@ -222,6 +234,7 @@
             }
             applySelectedStyle(homeItem);     // highlight Home
             selectedItem = homeItem;          // cập nhật selectedItem
+            meetingController.loadRecentMeetings(); // Cập nhật lại giao diện hiển thị danh sách các cuộc họp gần đây
             setContent(homeView);             // load giao diện Home
         }
     }

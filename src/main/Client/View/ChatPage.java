@@ -22,35 +22,41 @@ import main.Server.Model.User;
 import main.util.Session;
 import main.util.TimeUtil;
 
+import java.time.LocalDate;
 import java.util.List;
 
 import org.bson.Document;
+import org.bson.types.ObjectId;
+import shared.DTO.UserDTO;
 
 
 public class ChatPage extends StackPane {
-    private final User currentUser;
+    private ListView<HBox> peopleList;
+    private UserDTO currentUser;
     private StackPane contentPane;
     private final String myIdHex;
     private ListView<HBox> groupsList;      // để listener add group mới
     private String pendingCreatedGroupName; // để biết group vừa tạo
-    private List<User> otherUsers;
+    private List<UserDTO> otherUsers;
+    private  ListView<UserDTO> lv;
 
     private final ChatClient chatClient = ChatClient.getInstance();
     private String currentConversationId;
-    private User selectedUser;
-
-    private final UserController userController = new UserController();
+    private UserDTO selectedUser;
 
     public ChatPage(StackPane contentPane) {
         this.contentPane = contentPane;
+        peopleList = new ListView<>();
+        lv = new ListView<>();
 
         String email = Session.getInstance().getEmail();  // LẤY EMAIL ĐÃ LƯU
-        this.currentUser = userController.getUserProfile(email);
-//        String myIdHex = ((ObjectId) currentUser.getUser_id()).toHexString();
+        // Gui yeu cau len server de thong tin server hien tai
+        chatClient.getUserProfile(email);
+        //        String myIdHex = ((ObjectId) currentUser.getUser_id()).toHexString();
         // đổi getUser_id() theo đúng getter của bạn (cái này bạn phải chỉnh đúng tên field)
-        this.myIdHex = currentUser.getUserIdHex();
-        this.otherUsers = userController.getAllUsersExcept(email);  // đưa ra field
-
+        this.myIdHex = Session.getInstance().getUserIdHex();
+        // Gui yeu cau len server de lay cac user khac trong database
+        chatClient.getOtherUser(email);
         if (myIdHex == null) {
             throw new RuntimeException("currentUser.userId is null - kiểm tra UserController có set userId từ MongoDB chưa");
         }
@@ -58,24 +64,86 @@ public class ChatPage extends StackPane {
 
 
         chatClient.setListener(new ChatClient.Listener() {
-//            @Override
-//            public void onOpenPrivateOk(String conversationId, String withUserId, java.util.List<org.bson.Document> messages) {
-//                currentConversationId = conversationId;
-//                chatVBox.getChildren().clear();
-//
-//                for (org.bson.Document m : messages) {
-//                    String senderId = m.getString("senderId");
-//                    String content = m.getString("content");
-//                    boolean isMine = myIdHex.equals(senderId);
-//                    addMessage(content, isMine);
-//                }
-//            }
             @Override
             public void onHelloOk() {
                 // sau khi HELLO_OK về => an toàn gọi listGroups
                 chatClient.listGroups();
 
             }
+            @Override
+            public void onGetUserOk(Document userDoc) {
+                if (userDoc == null) return;
+                String dobStr = userDoc.getString("dob"); // server trả yyyy-MM-dd
+                LocalDate dob = (dobStr != null) ? LocalDate.parse(dobStr) : null;
+                currentUser = new UserDTO(
+                        userDoc.getString("username"),
+                        userDoc.getString("fullName"),
+                        userDoc.getString("email"),
+                        null,
+                        userDoc.getString("role"),
+                        userDoc.getString("gender"),
+                        userDoc.getString("phone"),
+                        userDoc.getString("address"),
+                        dob
+                );
+            }
+
+            @Override
+            public void onGetOtherUsersOk(List<Document> userDocs) {
+                otherUsers = userDocs.stream().map(d -> {
+                    LocalDate dob = d.getString("dob") != null ? LocalDate.parse(d.getString("dob")) : null;
+                    UserDTO u = new UserDTO(
+                            d.getString("username"),
+                            d.getString("fullName"),
+                            d.getString("email"),
+                            null,
+                            d.getString("role"),
+                            d.getString("gender"),
+                            d.getString("phone"),
+                            d.getString("address"),
+                            dob
+                    );
+                    String userIdHex = d.getString("userId");
+                    if (userIdHex != null) {
+                        u.setUserId(new ObjectId(userIdHex));
+                    }
+                    if (d.getDate("createdAt") != null) {
+                        u.setCreatedAt(d.getDate("createdAt"));
+                    }
+                    if (d.getDate("updatedAt") != null) {
+                        u.setUpdatedAt(d.getDate("updatedAt"));
+                    }
+                    u.setStatus(d.getString("status"));
+                    return u;
+                }).toList();
+                Platform.runLater(() -> lv.getItems().setAll(otherUsers));
+                Platform.runLater(this::buildPeopleList);
+            }
+
+            private void buildPeopleList() {
+                peopleList.getItems().clear();
+                for (UserDTO u : otherUsers) {
+
+                    // ========== Tính timeAgo ==========
+                    String timeAgo = "Unknown";
+                    if (u.getUpdatedAt() != null) {
+                        timeAgo = TimeUtil.formatTimeAgo(u.getUpdatedAt());
+                    }
+
+                    // ========== Tạo 1 item user ==========
+                    HBox item = userGroupItem(
+                            "./images/img.png",                  // avatar mặc định
+                            u.getFullName(),                     // tên user
+                            timeAgo,                             // trạng thái last active
+                            "Let's greet each other",            // tin nhắn mặc định
+                            "unread"                             // trạng thái mặc định
+                    );
+
+                    item.setUserData(u);              // <<< GẮN USER VÀO ITEM
+                    peopleList.getItems().add(item);
+                }
+            }
+
             @Override
             public void onListGroupsOk(java.util.List<org.bson.Document> groups) {
                 groupsList.getItems().clear();
@@ -177,31 +245,6 @@ public class ChatPage extends StackPane {
         Label peopleLabel = new Label("People");
         peopleLabel.setFont(Font.font("Poppins", FontWeight.BOLD, 20));
         peopleLabel.setPadding(new Insets(0, 0, 7, 10));
-
-        List<User> otherUsers = userController.getAllUsersExcept(email);
-
-        ListView<HBox> peopleList = new ListView<>();
-
-        for (User u : otherUsers) {
-
-            // ========== Tính timeAgo ==========
-            String timeAgo = "Unknown";
-            if (u.getUpdatedAt() != null) {
-                timeAgo = TimeUtil.formatTimeAgo(u.getUpdatedAt());
-            }
-
-            // ========== Tạo 1 item user ==========
-            HBox item = userGroupItem(
-                    "./images/img.png",                  // avatar mặc định
-                    u.getFullName(),                     // tên user
-                    timeAgo,                             // trạng thái last active
-                    "Let's greet each other",            // tin nhắn mặc định
-                    "unread"                             // trạng thái mặc định
-            );
-
-            item.setUserData(u);              // <<< GẮN USER VÀO ITEM
-            peopleList.getItems().add(item);
-        }
 
         peopleList.setPrefWidth(200);
 
@@ -358,13 +401,6 @@ public class ChatPage extends StackPane {
 
 //        ListView<HBox> groupsList = new ListView<>();
         groupsList = new ListView<>();
-        //groupsList.getItems().addAll("Friends Forever", "Halo Meet", "Pretty Girls");
-//        groupsList.getItems().addAll(
-//                userGroupItem("./images/img.png","F4", "Just finished", "Are you okay?", "read"),
-//                userGroupItem("./images/logo.png","VKU04", "1 mins ago", "What are u doing?", "unread"),
-//                userGroupItem("./images/unread.png","LTMangHuhu", "2 hrs ago", "I think it's a good chance", "read")
-//        );
-
         //double rowHeightGroup = 34 + 10*2; // HBox cao 34 + padding top/bottom 10px
         double rowHeightGroup = 34 + 10 + 1; // content + padding top + padding bottom + separator
 
@@ -491,7 +527,7 @@ public class ChatPage extends StackPane {
 
 
 //        String friendHex = selectedUser.getUserIdHex();
-        System.out.println("Current user hex: " + currentUser.getUserIdHex());
+        System.out.println("Current user hex: " + Session.getInstance().getUserIdHex());
 
 
         // ============================================ Center Pane: Chat Area =========================================
@@ -675,11 +711,11 @@ public class ChatPage extends StackPane {
                 updateChatHeader(newSel);
                 updateShowMorePanel(newSel); // cập nhật panel
 
-                selectedUser = (User) newSel.getUserData();
+                selectedUser = (UserDTO) newSel.getUserData();
                 System.out.println("CLICK userData = " + selectedUser);
 
                 if (selectedUser == null || selectedUser.getUserIdHex() == null) {
-                    System.out.println("❌ item.getUserData() bị null -> chưa gắn User vào item");
+                    System.out.println("item.getUserData() bị null -> chưa gắn User vào item");
                     return;
                 }
 
@@ -691,39 +727,33 @@ public class ChatPage extends StackPane {
                 System.out.println("friendHex = " + friendHex);
 
                 if (!chatClient.isConnected()) {
-                    System.out.println("⚠️ TCP chưa connect xong, đợi 'TCP Connected!' rồi click lại");
+                    System.out.println("TCP chưa connect xong, đợi 'TCP Connected!' rồi click lại");
                     return;
                 }
                 chatClient.openPrivate(friendHex);
-                System.out.println("✅ sent OPEN_PRIVATE");
+                System.out.println("sent OPEN_PRIVATE");
             }
         });
 
         groupsList.getSelectionModel().selectedItemProperty().addListener((obs, oldSel, newSel) -> {
-//            if (newSel != null) {
-//                isGroup=true;
-//                updateChatHeader(newSel);
-//                updateShowMorePanel(newSel);
-//                chatVBox.getChildren().clear();
-//            }
-                    if (newSel != null) {
-                        isGroup = true;
+            if (newSel != null) {
+                isGroup = true;
 
-                        updateChatHeader(newSel);
-                        updateShowMorePanel(newSel);
+                updateChatHeader(newSel);
+                updateShowMorePanel(newSel);
 
-                        chatVBox.getChildren().clear();
-                        currentConversationId = null;
+                chatVBox.getChildren().clear();
+                currentConversationId = null;
 
-                        String groupName = getItemName(newSel); // tên group trên UI (F4/VKU04/...)
-                        if (!chatClient.isConnected()) {
-                            System.out.println("⚠️ TCP chưa connect xong");
-                            return;
-                        }
+                String groupName = getItemName(newSel); // tên group trên UI (F4/VKU04/...)
+                if (!chatClient.isConnected()) {
+                    System.out.println("TCP chưa connect xong");
+                    return;
+                }
 
-                        chatClient.openGroup(groupName);
-                        System.out.println("✅ sent OPEN_GROUP: " + groupName);
-                    }
+                chatClient.openGroup(groupName);
+                System.out.println("sent OPEN_GROUP: " + groupName);
+            }
         });
 
 
@@ -825,17 +855,8 @@ public class ChatPage extends StackPane {
             String selectedName = chatHeaderName.getText();
             Image selectedAvatar = chatHeaderAvatar.getImage(); // <<< lấy avatar hiện t
 
-//            ProfilePage profilePage = new ProfilePage(stage, selectedName, selectedAvatar);
-//
-//            Stage profileStage = new Stage();  // tạo stage mới
-//            profilePage.start(profileStage);
-//            stage.hide();
             // Tạo ProfilePage mới
             ProfilePage profilePage = new ProfilePage(contentPane, selectedName, selectedAvatar);
-
-            // Thay nội dung trung tâm của Dashboard
-//            contentPane.getChildren().clear();  // xóa nội dung cũ (Chat)
-//            contentPane.getChildren().add(profilePage);  // thêm ProfilePage
         });
 
         Button notif = createIconButton(notifIcon);
@@ -1092,7 +1113,7 @@ public class ChatPage extends StackPane {
         HBox.setHgrow(chatArea, Priority.ALWAYS);
         root.setPadding(new Insets(20));
 
-      this.getChildren().add(root);
+        this.getChildren().add(root);
     }
 
     HBox createSearchBar() {
@@ -1374,11 +1395,10 @@ public class ChatPage extends StackPane {
         TextField txtName = new TextField();
         txtName.setPromptText("Group name");
 
-        ListView<User> lv = new ListView<>();
-        lv.getItems().addAll(otherUsers);
+
         lv.getSelectionModel().setSelectionMode(SelectionMode.MULTIPLE);
         lv.setCellFactory(list -> new ListCell<>() {
-            @Override protected void updateItem(User u, boolean empty) {
+            @Override protected void updateItem(UserDTO u, boolean empty) {
                 super.updateItem(u, empty);
                 setText(empty || u == null ? null : u.getFullName());
             }
@@ -1412,10 +1432,11 @@ public class ChatPage extends StackPane {
                 String groupName = txtName.getText().trim();
 
                 java.util.List<String> memberIds = new java.util.ArrayList<>();
-                for (User u : lv.getSelectionModel().getSelectedItems()) {
+                for (UserDTO u : lv.getSelectionModel().getSelectedItems()) {
                     if (u.getUserIdHex() != null) memberIds.add(u.getUserIdHex());
                 }
-
+                // <-- Đặt dòng này ở đây để kiểm tra danh sách member
+                System.out.println("Member IDs to send: " + memberIds);
                 // đánh dấu để khi OPEN_GROUP_OK về thì add group vào UI
                 pendingCreatedGroupName = groupName;
                 isGroup = true;
@@ -1424,24 +1445,4 @@ public class ChatPage extends StackPane {
             }
         });
     }
-
-
-//    private void openPrivateChat(User friend) {
-//        chatVBox.getChildren().clear();
-//
-//        // 1) getOrCreate conversation private
-//        currentConversationId = conversationController.getOrCreatePrivateConversation(
-//                currentUser.getUserId(),  // đổi theo getter của bạn
-//                friend.getUserId()
-//        );
-//
-//        // 2) load messages
-//        List<Message> history = messageController.getMessagesByConversation(currentConversationId);
-//
-//        // 3) render
-//        for (Message m : history) {
-//            boolean isMine = m.getSenderId().equals(currentUser.getUserId());
-//            addMessage(m.getContent(), isMine);
-//        }
-//    }
 }

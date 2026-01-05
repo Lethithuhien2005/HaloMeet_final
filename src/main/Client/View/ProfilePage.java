@@ -76,7 +76,7 @@ public class ProfilePage extends StackPane{
 
         headerStack.setClip(null); // bỏ clip mặc định
 
-        // 1️⃣ Background
+        //Background
         ImageView avatarBack = new ImageView(new Image("./images/profiles/background.png"));
         avatarBack.setPreserveRatio(false);
         avatarBack.setFitHeight(250);
@@ -114,7 +114,7 @@ public class ProfilePage extends StackPane{
         StackPane.setMargin(backBtn, new Insets(5,0,0,30));
 
 
-        // 3️⃣ User Info (cạnh avatar, trên header)
+        // User Info (cạnh avatar, trên header)
         VBox userInfo = new VBox();
         userInfo.setSpacing(5);
         Label nameLabel = new Label(currentName != null ? currentName : "Unknown User");
@@ -126,7 +126,7 @@ public class ProfilePage extends StackPane{
 
         headerStack.getChildren().addAll(avatarBack, backBtn);
 
-        // 4️⃣ Avatar “nổi” ra ngoài header
+        // Avatar “nổi” ra ngoài header
         double size = 160;
         // ImageView
         ImageView avatar = new ImageView(currentAvatar);

@@ -96,6 +96,7 @@ public class CentralHandler {
 
                 LoginLogupHandler loginLogupHandler = new LoginLogupHandler();
                 MeetingHandler meetingHandler = new MeetingHandler();
+                UserController userController = new UserController();
 
                 String line;
                 while ((line = in.readLine()) != null) {
@@ -113,19 +114,29 @@ public class CentralHandler {
                     else if ("OPEN_GROUP".equals(type)) handleOpenGroup(req);
                     else if ("CREATE_GROUP".equals(type)) handleCreateGroup(req);
                     else if ("LIST_GROUPS".equals(type)) handleListGroups(req);
-
-                    else if ("CREATE_MEETING".equals(type)) {
-                        // MeetingHandler se xu ly
-                        Document resp = meetingHandler.handleCreateMeeting(req);
+                    else if ("GET_USER".equals(type)) {
+                        // UserController se xu ly
+                        Document resp = userController.handleGetUser(req);
                         send(resp);
                     }
-                    else if ("JOIN_MEETING".equals(type)) {
-                      // MeetingHandler xu ly
-                      Document resp = meetingHandler.handleJoinMeeting(req);
-                    } else send(new Document("type", "ERROR").append("message", "Unknown type: " + type));
+                    else if ("GET_OTHER_USERS".equals(type)) {
+                        Document resp = userController.getAllUsersExcept(req);
+                        send(resp);
+                    }
+                    else if ("UPDATE_USER".equals(type)) {
+                        // MeetingHandler se xu ly
+                        Document resp = userController.handleUpdateUser(req);
+                        send(resp);
+                    }
+                    else if ("UPDATE_PASSWORD".equals(type)) {
+                        // MeetingHandler se xu ly
+                        Document resp = userController.updateUserPassword(req);
+                        send(resp);
+                    }
+                    else send(new Document("type", "ERROR").append("message", "Unknown type: " + type));
                 }
             }  catch (Exception ex) {
-                ex.printStackTrace();  // ✅ bắt buộc in ra
+                ex.printStackTrace();  // bắt buộc in ra
             } finally {
                 if (userIdHex != null) online.remove(userIdHex);
                 try { socket.close(); } catch (IOException ignored) {}

@@ -7,6 +7,7 @@ import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.Part;
+import javafx.application.Platform;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.geometry.Rectangle2D;
@@ -22,8 +23,8 @@ import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
+import main.Client.Controller.PersonalController;
 import main.Server.Controller.AvatarService;
-import main.Server.Controller.UserController;
 import main.Server.DAO.UserDAO;
 import main.Server.Model.User;
 import main.util.PasswordUtils;
@@ -60,6 +61,7 @@ import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
+import shared.DTO.UserDTO;
 
 
 public class PersonalProfile extends StackPane{
@@ -69,11 +71,10 @@ public class PersonalProfile extends StackPane{
     private String currentName = "Nguyen Anh";
     private Image currentAvatar = new Image("./images/chatPage/profile.png");;
     private String currentEmail;
+    private PersonalController personalController = new PersonalController(this);
+    private UserDTO currentUser;
 
     String email = Session.getInstance().getEmail();  // <<< LẤY EMAIL ĐÃ LƯU
-    UserController userController = new UserController();
-    // Lấy User từ DB
-    User user = userController.getUserProfile(email);  // giả sử gọi DAO bên trong Controller
     private String userIdHex;
 
 
@@ -85,24 +86,24 @@ public class PersonalProfile extends StackPane{
     String firstName = "Quynh Anh";
     String website = "https://quynhanh.dev";
     String location = "Ho Chi Minh, Vietnam";
+    public Label currentPasswordMsg;
+    public PasswordField currentPasswordField;
+    public PasswordField newPasswordField;
+    public Label confirmPasswordMsg;
+    public PasswordField confirmPasswordField;
 
 
     public PersonalProfile(StackPane contentPane, String currentEmail) {
         this.contentPane = contentPane;
         this.currentEmail = currentEmail;
-
-        initializeUI();
+        personalController.getUserProfile(currentEmail);
     }
 
     private VBox rightVBox;
     private Button activeMenuButton = null;
 
     private void initializeUI() {
-
-        User user = userController.getUserProfile(email);
-        if(user != null) {
-            userIdHex = user.getUserIdHex(); // <-- method trong class User
-        }
+        userIdHex = Session.getInstance().getUserIdHex();
 
 
         // ====== ROOT ======
@@ -229,35 +230,35 @@ public class PersonalProfile extends StackPane{
 //        });
 
 
-        try(Socket socket = new Socket("localhost", 12345);
-            InputStream in = socket.getInputStream();
-            PrintWriter writer = new PrintWriter(socket.getOutputStream(), true);
-            BufferedReader reader = new BufferedReader(new InputStreamReader(in))) {
-
-            writer.println("GET_AVATAR");
-            writer.println(userIdHex);
-
-            // đọc độ dài file
-            String lenStr = reader.readLine();
-            if(lenStr == null) throw new IOException("Không nhận được chiều dài file từ server");
-            long length = Long.parseLong(lenStr);
-
-            // đọc file theo buffer nhỏ (4KB) thay vì đọc hết vào mảng
-            ByteArrayOutputStream baos = new ByteArrayOutputStream();
-            byte[] buf = new byte[4096];
-            long remaining = length;
-            int read;
-            while(remaining > 0 && (read = in.read(buf, 0, (int)Math.min(buf.length, remaining))) != -1){
-                baos.write(buf, 0, read);
-                remaining -= read;
-            }
-
-            ByteArrayInputStream bais = new ByteArrayInputStream(baos.toByteArray());
-            avatar.setImage(new Image(bais));
-
-        } catch(IOException ex){
-            ex.printStackTrace();
-        }
+//        try(Socket socket = new Socket("localhost", 12345);
+//            InputStream in = socket.getInputStream();
+//            PrintWriter writer = new PrintWriter(socket.getOutputStream(), true);
+//            BufferedReader reader = new BufferedReader(new InputStreamReader(in))) {
+//
+//            writer.println("GET_AVATAR");
+//            writer.println(userIdHex);
+//
+//            // đọc độ dài file
+//            String lenStr = reader.readLine();
+//            if(lenStr == null) throw new IOException("Không nhận được chiều dài file từ server");
+//            long length = Long.parseLong(lenStr);
+//
+//            // đọc file theo buffer nhỏ (4KB) thay vì đọc hết vào mảng
+//            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+//            byte[] buf = new byte[4096];
+//            long remaining = length;
+//            int read;
+//            while(remaining > 0 && (read = in.read(buf, 0, (int)Math.min(buf.length, remaining))) != -1){
+//                baos.write(buf, 0, read);
+//                remaining -= read;
+//            }
+//
+//            ByteArrayInputStream bais = new ByteArrayInputStream(baos.toByteArray());
+//            avatar.setImage(new Image(bais));
+//
+//        } catch(IOException ex){
+//            ex.printStackTrace();
+//        }
 
 
         VBox leftVBox = new VBox();
@@ -280,17 +281,17 @@ public class PersonalProfile extends StackPane{
         Label fullnameLabel;
         Label usernameLabel;
         // Kiểm tra null để tránh lỗi
-        if (user == null) {
+        if (currentUser == null) {
             System.out.println("User not found!");
             return;
         }
-        if (user != null) {
+        if (currentUser != null) {
             // Fullname
-            fullnameLabel = new Label(user.getFullName()); // hoặc fullName nếu có
+            fullnameLabel = new Label(currentUser.getFullName()); // hoặc fullName nếu có
             fullnameLabel.setFont(Font.font("Arial", FontWeight.BOLD, 18));
 
             // Username
-            usernameLabel = new Label("_" + user.getUsername() + "_");
+            usernameLabel = new Label("_" + currentUser.getUsername() + "_");
             usernameLabel.setFont(Font.font("Arial", 14));
             usernameLabel.setTextFill(Color.GRAY);
             usernameLabel.setPadding(new Insets(0, 0, 20, 0));
@@ -655,11 +656,7 @@ public class PersonalProfile extends StackPane{
     private void loadPersonalInfo() {
         rightVBox.getChildren().clear();
 
-
-        // Lấy email của user đang đăng nhập
-        String email = Session.getInstance().getEmail();
-        UserController userController = new UserController();
-        User user = userController.getUserProfile(email);  // get từ DAO
+        personalController.getUserProfile(currentEmail);
 
         Label title = new Label("Personal Information");
         title.setFont(Font.font("Arial", FontWeight.BOLD, 23));
@@ -694,8 +691,8 @@ public class PersonalProfile extends StackPane{
         genderBox.setSpacing(60);
 
         // Đặt gender nếu có dữ liệu
-        if (user != null && user.getGender() != null) {  // giả sử bạn lưu gender trong role hoặc thêm gender
-            String gender = user.getGender(); // nếu bạn thêm trường gender thì lấy user.getGender()
+        if (currentUser != null && currentUser.getGender() != null) {  // giả sử bạn lưu gender trong role hoặc thêm gender
+            String gender = currentUser.getGender(); // nếu bạn thêm trường gender thì lấy user.getGender()
             if (gender.equalsIgnoreCase("Male")) maleRadio.setSelected(true);
             else if (gender.equalsIgnoreCase("Female")) femaleRadio.setSelected(true);
         }
@@ -716,7 +713,7 @@ public class PersonalProfile extends StackPane{
         firstNameLabel.setFont(Font.font("System", FontWeight.SEMI_BOLD, 12));
         lastNameLabel.setFont(Font.font("System", FontWeight.SEMI_BOLD, 12));
 
-        String fullName = user.getFullName() != null ? user.getFullName() : "";
+        String fullName = currentUser.getFullName() != null ? currentUser.getFullName() : "";
         String firstName = "";
         String lastName = "";
 
@@ -755,7 +752,7 @@ public class PersonalProfile extends StackPane{
         // EMAIL
         // ===========================
         TextField emailField = createRoundedTextField();
-        emailField.setText(user != null && user.getEmail() != null ? user.getEmail() : "");
+        emailField.setText(currentUser != null && currentUser.getEmail() != null ? currentUser.getEmail() : "");
         // Read only
         emailField.setEditable(false);
         // Style nhạt hơn (màu chữ xám)
@@ -769,8 +766,8 @@ public class PersonalProfile extends StackPane{
         // ADDRESS
         // ===========================
         TextField addressField = createRoundedTextField();
-        if (user != null && user.getAddress() != null && !user.getAddress().isEmpty()) {
-            addressField.setText(user.getAddress());
+        if (currentUser != null && currentUser.getAddress() != null && !currentUser.getAddress().isEmpty()) {
+            addressField.setText(currentUser.getAddress());
         } else {
             addressField.setPromptText("Address");
         }
@@ -780,12 +777,12 @@ public class PersonalProfile extends StackPane{
         // PHONE + DATE OF BIRTH
         // ===========================
         TextField phoneField = createRoundedTextField();
-        phoneField.setText(user != null && user.getPhone() != null ? user.getPhone() : "");
+        phoneField.setText(currentUser != null && currentUser.getPhone() != null ? currentUser.getPhone() : "");
         phoneField.setPromptText("Phone Number");
 
         DatePicker dobPicker = new DatePicker();
         dobPicker.setStyle("-fx-background-color: transparent; -fx-border-color: transparent;");
-        dobPicker.setValue(user.getDob() != null ? user.getDob() : null);
+        dobPicker.setValue(currentUser.getDob() != null ? currentUser.getDob() : null);
 
         StackPane dobWrapper = new StackPane(dobPicker);
         dobWrapper.setStyle("""
@@ -833,8 +830,8 @@ public class PersonalProfile extends StackPane{
         // LOCATION
         // ===========================
         TextField locationField = createRoundedTextField();
-        if (user != null && user.getAddress() != null && !user.getAddress().isEmpty()) {
-            locationField.setText(user.getAddress());
+        if (currentUser != null && currentUser.getAddress() != null && !currentUser.getAddress().isEmpty()) {
+            locationField.setText(currentUser.getAddress());
         } else {
             locationField.setPromptText("Location");
         }
@@ -872,9 +869,9 @@ public class PersonalProfile extends StackPane{
         saveBtn.setPrefHeight(50);
 
         discardBtn.setOnAction(e -> {
-            if (user != null) {
+            if (currentUser != null) {
                 // Gender
-                String gender = user.getGender();
+                String gender = currentUser.getGender();
                 if (gender != null) {
                     maleRadio.setSelected(gender.equalsIgnoreCase("Male"));
                     femaleRadio.setSelected(gender.equalsIgnoreCase("Female"));
@@ -882,7 +879,7 @@ public class PersonalProfile extends StackPane{
                     genderGroup.selectToggle(null);  // bỏ chọn nếu null
                 }
                 // Full Name -> First + Last
-                String fullNamee = user.getFullName() != null ? user.getFullName() : "";
+                String fullNamee = currentUser.getFullName() != null ? currentUser.getFullName() : "";
                 if (!fullNamee.isEmpty()) {
                     fullNamee = fullNamee.trim();
                     int lastSpace = fullNamee.lastIndexOf(" ");
@@ -893,47 +890,34 @@ public class PersonalProfile extends StackPane{
                     lastNameField.setText("");
                 }
                 // Email
-                emailField.setText(user.getEmail() != null ? user.getEmail() : "");
+                emailField.setText(currentUser.getEmail() != null ? currentUser.getEmail() : "");
                 // Phone
-                phoneField.setText(user.getPhone() != null ? user.getPhone() : "");
+                phoneField.setText(currentUser.getPhone() != null ? currentUser.getPhone() : "");
                 // Address
-                addressField.setText(user.getAddress() != null ? user.getAddress() : "");
+                addressField.setText(currentUser.getAddress() != null ? currentUser.getAddress() : "");
                 // Location (nếu có field riêng)
-                locationField.setText(user.getAddress() != null ? user.getAddress() : "");
+                locationField.setText(currentUser.getAddress() != null ? currentUser.getAddress() : "");
                 // Date of Birth
-                dobPicker.setValue(user.getDob());
+                dobPicker.setValue(currentUser.getDob());
             }
         });
         saveBtn.setOnAction(e -> {
-            if (user != null) {
+            if (currentUser != null) {
                 // Update dữ liệu từ form
                 String updatedFullName = firstNameField.getText().trim() + " " + lastNameField.getText().trim();
-                user.setFullName(updatedFullName);
+                currentUser.setFullName(updatedFullName);
 
                 String updatedGender = maleRadio.isSelected() ? "Male" : femaleRadio.isSelected() ? "Female" : null;
-                user.setGender(updatedGender);
+                currentUser.setGender(updatedGender);
 
-                user.setPhone(phoneField.getText().trim());
-                user.setAddress(addressField.getText().trim());
-                user.setDob(dobPicker.getValue());
+                currentUser.setPhone(phoneField.getText().trim());
+                currentUser.setAddress(addressField.getText().trim());
+                currentUser.setDob(dobPicker.getValue());
 
                 // Nếu có location riêng, dùng locationField.getText()
 
                 // Update vào database
-                UserController userControllerUpdate = new UserController();
-                boolean success = userControllerUpdate.updateUserProfile(user);  // bạn cần viết hàm này trong UserController -> DAO
-
-                if (success) {
-                    Alert alert = new Alert(Alert.AlertType.INFORMATION);
-                    alert.setHeaderText(null);
-                    alert.setContentText("User profile updated successfully!");
-                    alert.show();
-                } else {
-                    Alert alert = new Alert(Alert.AlertType.ERROR);
-                    alert.setHeaderText(null);
-                    alert.setContentText("Update failed. Please try again.");
-                    alert.show();
-                }
+               personalController.updateUserProfile(currentUser);
             }
         });
 
@@ -1059,27 +1043,23 @@ public class PersonalProfile extends StackPane{
         title.setFont(Font.font("Arial", FontWeight.BOLD, 24));
         title.setPadding(new Insets(0, 0, 30, 0));
 
-        PasswordField currentPasswordField = createRoundedPasswordField();
-        PasswordField newPasswordField = createRoundedPasswordField();
-        PasswordField confirmPasswordField = createRoundedPasswordField();
+        currentPasswordField = createRoundedPasswordField();
+        newPasswordField = createRoundedPasswordField();
+        confirmPasswordField = createRoundedPasswordField();
 
         // Labels hiển thị thông báo
-        Label currentPasswordMsg = new Label();
-        Label confirmPasswordMsg = new Label();
+        currentPasswordMsg = new Label();
+        confirmPasswordMsg = new Label();
 
         currentPasswordMsg.setFont(Font.font("System", 9));
         confirmPasswordMsg.setFont(Font.font("System", 9));
 
         currentPasswordField.textProperty().addListener((obs, oldText, newText) -> {
-            String email = Session.getInstance().getEmail();
-            UserController userController = new UserController();
-            User user = userController.getUserProfile(email);
-
-            if (user != null) {
+            if (currentUser != null) {
                 String salt = "hienanh";
                 String hashedInput = PasswordUtils.hashPassword(newText + salt);
 
-                if (hashedInput.equals(user.getPassword())) {
+                if (hashedInput.equals(currentUser.getPassword())) {
                     currentPasswordMsg.setText("Current password is correct");
                     currentPasswordMsg.setTextFill(Color.GREEN);
                 } else {
@@ -1129,17 +1109,13 @@ public class PersonalProfile extends StackPane{
             String newPass = newPasswordField.getText();
             String confirmPass = confirmPasswordField.getText();
 
-            String email = Session.getInstance().getEmail();
-            UserController userController = new UserController();
-            User user = userController.getUserProfile(email);
-
-            if (user == null) return;
+            if (currentUser == null) return;
 
             String salt = "hienanh"; // dùng 1 lần duy nhất
 
             // Check current password
             String hashedCurrent = PasswordUtils.hashPassword(currentPass + salt);
-            if (!hashedCurrent.equals(user.getPassword())) {
+            if (!hashedCurrent.equals(currentUser.getPassword())) {
                 currentPasswordMsg.setText("Password is incorrect");
                 currentPasswordMsg.setTextFill(Color.RED);
                 return;
@@ -1154,8 +1130,8 @@ public class PersonalProfile extends StackPane{
 
             // Update password
             String hashedPassword = PasswordUtils.hashPassword(newPass + salt);
-            user.setPassword(hashedPassword);
-            userController.updateUserPassword(user);
+            currentUser.setPassword(hashedPassword);
+            personalController.updateUserPassword(currentUser);
 
             currentPasswordMsg.setText("Password updated successfully");
             currentPasswordMsg.setTextFill(Color.GREEN);
@@ -1191,6 +1167,20 @@ public class PersonalProfile extends StackPane{
         rightVBox.getChildren().addAll(title, logoutBtn);
     }
 
+    public void showError(String message) {
+        Alert alert = new Alert(Alert.AlertType.ERROR);
+        alert.setHeaderText(null);
+        alert.setContentText(message);
+        alert.show();
+    }
+
+    public void setCurrentUser(UserDTO userDTO) {
+        this.currentUser = userDTO;
+        Platform.runLater(() -> {
+            System.out.println("CurrentUser in initializeUI: " + currentUser);
+            initializeUI();
+        });
+    }
 
 //    public static void main(String[] args) {
 //        javafx.application.Application.launch(TestProfilePage.class, args);
